@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+ 
+<style>
+         body{
+      background-color: #CCF3EE;
+    }
+#container {
+	margin: 0px auto;
+	width: 500px;
+	height: 375px;
+	border: 10px #333 solid;
+    margin-bottom:100px;
+}
+    
+    .display {
+	margin: 60px auto;
+	width: 500px;
+	height: 375px;
+	border: 10px #333 solid;
+}
+  .button {
+  border: 2px solid black;
+      margin-right:50px;
+      margin-left:20px;
+  background-color: white;
+  color: black;
+  height: 55px;
+  width: 170px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.button {
+  border-color: #ff9800;
+  color: orange;
+}
+
+.button:hover {
+  background: #ff9800;
+  color: white;
+}
+    a,a:visited{
+        text-decoration: none;
+        color:orange;
+    }
+    a:hover{
+         background: #ff9800;
+         color: white;
+        position:75%;
+}
+        
+#videoElement {
+	width: 500px;
+	height: 375px;
+	background-color: #666;
+}
+</style>
+</head>
+ 
+<body>
+   
+    <center><h1>Attendance system</h1></center>
+<div id="container">
+	<video autoplay="true" id="videoElement">
+	
+	</video>
+      <br>
+    <br>
+    <center>
+        <button id="pic-submit" class="button"> Click A Pic</button>
+          <br>
+    <br>
+        <button id="check-attendance"  class="button" style="display: none;">Check Attendence</button>
+        
+      </center>
+
+    
+</div>
+    
+<script>
+
+  var video = document.querySelector("#videoElement");
+
+if (navigator.mediaDevices.getUserMedia) {
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(function (stream) {
+      video.srcObject = stream;
+    })
+    .catch(function (err0r) {
+      console.log("Something went wrong!");
+    });
+}
+  function stop(e) {
+  var stream = video.srcObject;
+  var tracks = stream.getTracks();
+
+  for (var i = 0; i < tracks.length; i++) {
+    var track = tracks[i];
+    track.stop();
+  }
+
+  video.srcObject = null;
+}
+  
+  
+  
+</script>
+   
+
+     <br>
+    <br>
+   
+
+<div class="display">
+    <canvas id="canvas"></canvas>
+</div>
+<!--         <div class="output">
+            <img id="photo" alt="The screen capture will appear in this box.">
+        </div> -->
+
+
+    <script>
+    /* JS comes here */
+    (function() {
+
+        var width = 500; // We will scale the photo width to this
+        var height = 0; // This will be computed based on the input stream
+
+        var streaming = false;
+
+        var video = null;
+        var canvas = null;
+        var photo = null;
+        let submitbutton = document.getElementById('pic-submit');
+        let checkattendancebutton = document.getElementById('check-attendance');
+        checkattendancebutton.addEventListener('click', () => {
+            window.location.href = "http://127.0.0.1:5000/final1";
+        })
+        function base64ToBlob(base64, mime) 
+        {
+            mime = mime || '';
+            var sliceSize = 1024;
+            var byteChars = window.atob(base64);
+            var byteArrays = [];
+
+            for (var offset = 0, len = byteChars.length; offset < len; offset += sliceSize) {
+                var slice = byteChars.slice(offset, offset + sliceSize);
+
+                var byteNumbers = new Array(slice.length);
+                for (var i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+
+                var byteArray = new Uint8Array(byteNumbers);
+
+                byteArrays.push(byteArray);
+            }
+
+            return new Blob(byteArrays, {type: mime});
+        }
+        
+        submitbutton.addEventListener('click', (event) => {
+            console.log(event);
+            checkattendancebutton.setAttribute('style','display:none');
+            // checkattendancebutton.disabled = true;
+            event.preventDefault();
+            var context = canvas.getContext('2d');
+            canvas.width = width;
+            canvas.height = height;
+            context.drawImage(video, 0, 0, width, height);
+            var data = canvas.toDataURL('image/png');
+            var base64ImageContent = data.replace(/^data:image\/(png|jpg);base64,/, "");
+            var image = base64ToBlob(base64ImageContent, 'image/png');
+            console.log(image);
+            const formData  = new FormData();
+            formData.append('image', image);
+            let response = fetch('/result', {
+                method: 'POST',
+                body: formData
+            })
+            response.then((data) => {
+                if(data.status == 200){
+                    checkattendancebutton.setAttribute('style','display:block');
+                }
+            } )
+            console.log(formData);
+        })
+
+        function startup() {
+            video = document.getElementById('videoElement');
+            canvas = document.getElementById('canvas');
+            photo = document.getElementById('photo');
+            // startbutton = document.getElementById('startbutton');
+
+            navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: false
+                })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    video.play();
+                })
+                .catch(function(err) {
+                    console.log("An error occurred: " + err);
+                });
+
+            video.addEventListener('canplay', function(ev) {
+                if (!streaming) {
+                    height = video.videoHeight / (video.videoWidth / width);
+
+                    if (isNaN(height)) {
+                        height = width / (4 / 3);
+                    }
+
+                    video.setAttribute('width', width);
+                    video.setAttribute('height', height);
+                    canvas.setAttribute('width', width);
+                    canvas.setAttribute('height', height);
+                    streaming = true;
+                }
+            }, false);
+
+            // startbutton.addEventListener('click', function(ev) {
+            //     takepicture();
+            //     ev.preventDefault();
+            // }, false);
+
+            clearphoto();
+        }
+
+
+        function clearphoto() {
+            var context = canvas.getContext('2d');
+            context.fillStyle = "#AAA";
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            var data = canvas.toDataURL('image/png');
+            // photo.setAttribute('src', data);
+        }
+
+        function takepicture() {
+            var context = canvas.getContext('2d');
+            if (width && height) {
+                canvas.width = width;
+                canvas.height = height;
+                context.drawImage(video, 0, 0, width, height);
+
+                var data = canvas.toDataURL('image/png');
+                
+                // photo.setAttribute('src', data);
+            } else {
+                clearphoto();
+            }
+        }
+
+        window.addEventListener('load', startup, false);
+    })();
+        
+    
+       
+        
+        
+     
+        
+        
+        
+        
+    </script>
+</body>
+
+</html> 
